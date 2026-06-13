@@ -219,6 +219,26 @@ async function runBenchmark() {
   console.log(`\n[Phase: ${currentPhase}] Warming up for ${WARMUP_SECONDS}s...`);
   await delay(WARMUP_SECONDS * 1000);
 
+  // Màn hình chụp 3 bot ngẫu nhiên
+  if (!shuttingDown) {
+    console.log(`\n[Phase: warmup] Taking screenshots of up to 3 random bots...`);
+    const joinedBots = botContexts.filter(b => b.uiJoined && b.page);
+    
+    // Shuffle array to pick random
+    const shuffledBots = [...joinedBots].sort(() => 0.5 - Math.random());
+    const selectedBots = shuffledBots.slice(0, 3);
+    
+    for (const bot of selectedBots) {
+      try {
+        const screenshotPath = path.join(runOutputDir, `${bot.botName}.png`);
+        await bot.page.screenshot({ path: screenshotPath });
+        console.log(`  - Saved screenshot for ${bot.botName}`);
+      } catch (e) {
+        console.warn(`  - Failed to screenshot ${bot.botName}: ${e.message}`);
+      }
+    }
+  }
+
   // MEASUREMENT
   if (!shuttingDown) {
     currentPhase = "measurement";
