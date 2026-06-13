@@ -78,7 +78,8 @@ mkdir -p "$METRICS_BASE_DIR"
 # Validate collector script
 ###############################################################################
 
-OS_SCRIPT="$BASE_DIR/collect_os_metrics_5s.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+OS_SCRIPT="$SCRIPT_DIR/collect_os_metrics_5s.sh"
 
 if [ ! -x "$OS_SCRIPT" ]; then
   echo "ERROR: OS collector script not found or not executable: $OS_SCRIPT" >&2
