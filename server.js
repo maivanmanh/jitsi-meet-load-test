@@ -32,6 +32,7 @@ const ENABLE_SCREEN_SHARE = String(process.env.ENABLE_SCREEN_SHARE || "false").t
 const LAST_N_NORMAL = Number(process.env.LAST_N_NORMAL) || 9;
 const LAST_N_SHARING = Number(process.env.LAST_N_SHARING) || 3;
 const SERVER_ONLY = String(process.env.SERVER_ONLY || "false").toLowerCase() === "true";
+const UI_OPTIMIZATION = String(process.env.UI_OPTIMIZATION || "true").toLowerCase() === "true";
 
 const DEBUG_STATS = String(process.env.DEBUG_STATS || "false").toLowerCase() === "true";
 const DUMP_RAW_WEBRTC_STATS = String(process.env.DUMP_RAW_WEBRTC_STATS || "false").toLowerCase() === "true";
@@ -74,7 +75,7 @@ const runConfig = {
   BOT_NAME_PATTERN, BOT_ROLE, PUBLISHERS_COUNT, HEADLESS, BROWSER_STRATEGY, BOTS_PER_BROWSER,
   BROWSER_GROUP_DELAY_MS, RAMP_DELAY_MS, WARMUP_SECONDS, MEASUREMENT_SECONDS,
   STATS_INTERVAL_MS: effectiveIntervalMs, TEARDOWN_DELAY_SECONDS, INSTANCE_TYPE,
-  AWS_AZ, OUTPUT_DIR, DISABLE_GPU, SERVER_ONLY, ENABLE_SCREEN_SHARE, LAST_N_NORMAL, LAST_N_SHARING, FAKE_VIDEO, FAKE_AUDIO, DEBUG_STATS, DUMP_RAW_WEBRTC_STATS
+  AWS_AZ, OUTPUT_DIR, DISABLE_GPU, SERVER_ONLY, ENABLE_SCREEN_SHARE, LAST_N_NORMAL, LAST_N_SHARING, UI_OPTIMIZATION, FAKE_VIDEO, FAKE_AUDIO, DEBUG_STATS, DUMP_RAW_WEBRTC_STATS
 };
 fs.writeFileSync(path.join(runOutputDir, "run_config.json"), JSON.stringify(runConfig, null, 2));
 
@@ -122,6 +123,14 @@ async function runBenchmark() {
   ];
   if (DISABLE_GPU) launchArgs.push("--disable-gpu");
 
+  if (UI_OPTIMIZATION) {
+    launchArgs.push(
+      "--mute-audio",
+      "--disable-animations",
+      "--disable-backing-store-limit"
+    );
+  }
+
   let currentBrowser = null;
   let currentBrowserIndex = -1;
   const numBrowsers = BROWSER_STRATEGY === "multi-browser" ? Math.ceil(CLIENT_COUNT / BOTS_PER_BROWSER) : 1;
@@ -141,12 +150,24 @@ async function runBenchmark() {
       currentBrowserIndex = groupIndex;
     }
 
-    const context = await currentBrowser.newContext({ 
-      ignoreHTTPSErrors: true, 
-      permissions: ["camera", "microphone"],
-      viewport: { width: 1920, height: 1080 } 
-    });
-    const page = await context.newPage();
+    let context, page;
+    try {
+      context = await currentBrowser.newContext({ 
+        ignoreHTTPSErrors: true, 
+        permissions: ["camera", "microphone"],
+        viewport: { width: 1280, height: 720 } 
+      });
+      page = await context.newPage();
+    } catch (err) {
+      console.error(`[!] Failed to launch browser context for ${botName}: ${err.message}`);
+      let botObj = {
+        page: null, botId, botName, groupId: groupIndex, uiJoined: false,
+        firstJoinElapsed: null, prevStats: null,
+        measurementHistory: [], joinPromise: Promise.resolve(false), lastErrorReason: "browser_context_crashed"
+      };
+      botContexts.push(botObj);
+      continue;
+    }
     
     let currentRole = BOT_ROLE;
     
@@ -161,7 +182,7 @@ async function runBenchmark() {
       isScreenShare = true;
     }
 
-    const targetUrl = `http://localhost:${PORT}/?room=${encodeURIComponent(ROOM_NAME)}&name=${encodeURIComponent(botName)}&domain=${encodeURIComponent(JITSI_DOMAIN)}&role=${encodeURIComponent(currentRole)}&screenshare=${isScreenShare}&lastn_normal=${LAST_N_NORMAL}&lastn_sharing=${LAST_N_SHARING}&debug=${DEBUG_STATS}`;
+    const targetUrl = `http://localhost:${PORT}/?room=${encodeURIComponent(ROOM_NAME)}&name=${encodeURIComponent(botName)}&domain=${encodeURIComponent(JITSI_DOMAIN)}&role=${encodeURIComponent(currentRole)}&screenshare=${isScreenShare}&lastn_normal=${LAST_N_NORMAL}&lastn_sharing=${LAST_N_SHARING}&optimize=${UI_OPTIMIZATION}&debug=${DEBUG_STATS}`;
     
     let botObj = {
       page, botId, botName, groupId: groupIndex, uiJoined: false,

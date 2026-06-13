@@ -177,6 +177,16 @@ function onConferenceJoined() {
     }
   }
 
+  window.isOptimizeMode = urlParams.get("optimize") === "true";
+  if (window.isOptimizeMode) {
+      console.log("[Optimize] Tắt render video và bắt buộc nhận luồng thấp (180p)");
+      try {
+          room.setReceiverVideoConstraint(180);
+      } catch(e) {
+          console.warn("[Optimize] Không thể setReceiverVideoConstraint", e);
+      }
+  }
+
   // --- HÀM CẬP NHẬT LASTN ĐỘNG ---
   let currentLastNVal = null; // Theo dõi LastN hiện tại để không gửi lệnh API thừa
   window.applyLastNConstraint = function(forceValue) {
@@ -294,24 +304,27 @@ function onConferenceJoined() {
   }
 }
 
-function forceAttachToHiddenElement(track) {
+function forceAttachToHiddenElement(track, participantId = "local") {
   try {
+    const trackId = track.getId() || "track";
     if (track.getType() === "video") {
       const video = document.createElement("video");
       video.autoplay = true;
       video.muted = true;
       video.playsInline = true;
+      video.id = `hidden-video-${participantId}-${trackId}`;
       video.style.position = "fixed";
       video.style.top = "-2000px";
       video.style.left = "-2000px";
-      video.style.width = "320px";
-      video.style.height = "240px";
+      video.style.width = "1px";
+      video.style.height = "1px";
       document.body.appendChild(video);
       track.attach(video);
     } else if (track.getType() === "audio") {
       const audio = document.createElement("audio");
       audio.autoplay = true;
       audio.muted = true;
+      audio.id = `hidden-audio-${participantId}-${trackId}`;
       audio.style.display = "none";
       document.body.appendChild(audio);
       track.attach(audio);
@@ -328,10 +341,17 @@ function onRemoteTrackAdded(track) {
   const participantId = track.getParticipantId();
   
   if (track.getType() === "video") {
-    addVideoToGrid(track, participantId, participants[participantId] || "Thành viên");
+    if (window.isOptimizeMode) {
+      forceAttachToHiddenElement(track, participantId);
+    } else {
+      addVideoToGrid(track, participantId, participants[participantId] || "Thành viên");
+    }
   } else if (track.getType() === "audio") {
     const audio = document.createElement("audio");
     audio.autoplay = true;
+    if (window.isOptimizeMode) {
+      audio.muted = true; // Mute remote audio to save CPU mixer
+    }
     audio.id = `audio-${participantId}-${track.getId()}`;
     document.body.appendChild(audio);
     track.attach(audio);
@@ -344,11 +364,19 @@ function onRemoteTrackRemoved(track) {
   const trackId = track.getId() || "track";
   
   if (track.getType() === "video") {
-    removeVideoFromGrid(track, participantId, trackId);
+    if (window.isOptimizeMode) {
+      track.detach();
+      const video = document.getElementById(`hidden-video-${participantId}-${trackId}`);
+      if (video) video.remove();
+    } else {
+      removeVideoFromGrid(track, participantId, trackId);
+    }
   } else if (track.getType() === "audio") {
     track.detach();
-    const audio = document.getElementById(`audio-${participantId}-${track.getId()}`);
+    const audio = document.getElementById(`audio-${participantId}-${trackId}`);
     if (audio) audio.remove();
+    const hiddenAudio = document.getElementById(`hidden-audio-${participantId}-${trackId}`);
+    if (hiddenAudio) hiddenAudio.remove();
   }
 }
 
