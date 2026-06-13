@@ -6,8 +6,8 @@ chmod +x /home/ubuntu/run_os_collector_only.sh
 
 cho scp command để tải file sau từ ssh sv
 
-ssh -i ~/.ssh/key ubuntu@13.222.222.36 - server 
-ssh -i ~/.ssh/key ubuntu@107.21.168.223 - test client
+ssh -i ~/.ssh/key ubuntu@52.91.223.237 - server 
+ssh -i ~/.ssh/key ubuntu@32.198.3.51 - test client
 
 
 scp -i ~/.ssh/key /Users/mvmanh/FAIR2026/terraform/monitor_scripts/*.sh ubuntu@3.84.103.247:/home/ubuntu/
