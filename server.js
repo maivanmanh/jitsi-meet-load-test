@@ -13,6 +13,7 @@ const ROOM_NAME = process.env.ROOM_NAME || "mvm";
 const JITSI_DOMAIN = process.env.JITSI_DOMAIN || "meeting.maivanmanh.online";
 const BOT_NAME_PATTERN = process.env.BOT_NAME_PATTERN || "Bot-";
 const BOT_ROLE = process.env.BOT_ROLE || "sender";
+const PUBLISHERS_COUNT = process.env.PUBLISHERS_COUNT ? Number(process.env.PUBLISHERS_COUNT) : -1;
 const HEADLESS = String(process.env.HEADLESS || "true").toLowerCase() === "true";
 const BROWSER_STRATEGY = process.env.BROWSER_STRATEGY || "multi-browser";
 const BOTS_PER_BROWSER = Number(process.env.BOTS_PER_BROWSER) || 5;
@@ -70,7 +71,7 @@ const runSummaryPath = path.join(runOutputDir, "run_summary.json");
 // Write run_config.json
 const runConfig = {
   RUN_ID, LOAD_GENERATOR_ID, BOT_START_INDEX, CLIENT_COUNT, ROOM_NAME, JITSI_DOMAIN,
-  BOT_NAME_PATTERN, BOT_ROLE, HEADLESS, BROWSER_STRATEGY, BOTS_PER_BROWSER,
+  BOT_NAME_PATTERN, BOT_ROLE, PUBLISHERS_COUNT, HEADLESS, BROWSER_STRATEGY, BOTS_PER_BROWSER,
   BROWSER_GROUP_DELAY_MS, RAMP_DELAY_MS, WARMUP_SECONDS, MEASUREMENT_SECONDS,
   STATS_INTERVAL_MS: effectiveIntervalMs, TEARDOWN_DELAY_SECONDS, INSTANCE_TYPE,
   AWS_AZ, OUTPUT_DIR, DISABLE_GPU, SERVER_ONLY, ENABLE_SCREEN_SHARE, LAST_N_NORMAL, LAST_N_SHARING, FAKE_VIDEO, FAKE_AUDIO, DEBUG_STATS, DUMP_RAW_WEBRTC_STATS
@@ -148,7 +149,10 @@ async function runBenchmark() {
     const page = await context.newPage();
     
     let currentRole = BOT_ROLE;
-    if (BOT_ROLE === "sender" || BOT_ROLE === "receiver") {
+    
+    if (PUBLISHERS_COUNT > -1) {
+      currentRole = (i < PUBLISHERS_COUNT) ? "both" : "receiver";
+    } else if (BOT_ROLE === "sender" || BOT_ROLE === "receiver") {
       currentRole = (i === 0) ? "both" : BOT_ROLE;
     }
     
