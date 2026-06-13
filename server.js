@@ -131,14 +131,31 @@ async function runBenchmark() {
     );
   }
 
+  let roomCount = 1;
+  let baseRoomName = ROOM_NAME;
+  if (/^\d+$/.test(ROOM_NAME)) {
+    roomCount = parseInt(ROOM_NAME, 10);
+    baseRoomName = "room";
+  }
+  const TOTAL_CLIENTS = CLIENT_COUNT * roomCount;
+  
+  console.log(`[Configuration] Spawning ${TOTAL_CLIENTS} bots across ${roomCount} room(s). Base room name: ${baseRoomName}`);
+
   let currentBrowser = null;
   let currentBrowserIndex = -1;
-  const numBrowsers = BROWSER_STRATEGY === "multi-browser" ? Math.ceil(CLIENT_COUNT / BOTS_PER_BROWSER) : 1;
+  const numBrowsers = BROWSER_STRATEGY === "multi-browser" ? Math.ceil(TOTAL_CLIENTS / BOTS_PER_BROWSER) : 1;
 
-  for (let i = 0; i < CLIENT_COUNT; i++) {
+  for (let i = 0; i < TOTAL_CLIENTS; i++) {
     if (shuttingDown) break;
     const botId = BOT_START_INDEX + i;
-    const botName = `${BOT_NAME_PATTERN}${botId}`;
+    const botIndexInRoom = i % CLIENT_COUNT;
+    const roomIndex = Math.floor(i / CLIENT_COUNT) + 1;
+    
+    const roomPrefixes = ["Bot-", "Machine-", "User-", "Guest-", "Student-", "Tester-", "Client-", "Agent-"];
+    const currentPrefix = roomCount > 1 ? roomPrefixes[(roomIndex - 1) % roomPrefixes.length] : BOT_NAME_PATTERN;
+    const botName = `${currentPrefix}${botId}`;
+    
+    const currentRoomName = roomCount > 1 ? `${baseRoomName}-${roomIndex}` : baseRoomName;
     const groupIndex = BROWSER_STRATEGY === "multi-browser" ? Math.floor(i / BOTS_PER_BROWSER) : 0;
 
     if (groupIndex !== currentBrowserIndex) {
@@ -172,47 +189,46 @@ async function runBenchmark() {
     let currentRole = BOT_ROLE;
     
     if (PUBLISHERS_COUNT > -1) {
-      currentRole = (i < PUBLISHERS_COUNT) ? "both" : "receiver";
+      currentRole = (botIndexInRoom < PUBLISHERS_COUNT) ? "both" : "receiver";
     } else if (BOT_ROLE === "sender" || BOT_ROLE === "receiver") {
-      currentRole = (i === 0) ? "both" : BOT_ROLE;
+      currentRole = (botIndexInRoom === 0) ? "both" : BOT_ROLE;
     }
     
     let isScreenShare = false;
-    if (ENABLE_SCREEN_SHARE && i === 0) {
+    if (ENABLE_SCREEN_SHARE && botIndexInRoom === 0) {
       isScreenShare = true;
     }
 
-    const targetUrl = `http://localhost:${PORT}/?room=${encodeURIComponent(ROOM_NAME)}&name=${encodeURIComponent(botName)}&domain=${encodeURIComponent(JITSI_DOMAIN)}&role=${encodeURIComponent(currentRole)}&screenshare=${isScreenShare}&lastn_normal=${LAST_N_NORMAL}&lastn_sharing=${LAST_N_SHARING}&optimize=${UI_OPTIMIZATION}&debug=${DEBUG_STATS}`;
+    const targetUrl = `http://localhost:${PORT}/?room=${encodeURIComponent(currentRoomName)}&name=${encodeURIComponent(botName)}&domain=${encodeURIComponent(JITSI_DOMAIN)}&role=${encodeURIComponent(currentRole)}&screenshare=${isScreenShare}&lastn_normal=${LAST_N_NORMAL}&lastn_sharing=${LAST_N_SHARING}&optimize=${UI_OPTIMIZATION}&debug=${DEBUG_STATS}`;
     
     let botObj = {
-      page, botId, botName, groupId: groupIndex, uiJoined: false,
+      page, botId, botName, roomName: currentRoomName, groupId: groupIndex, uiJoined: false,
       firstJoinElapsed: null, prevStats: null,
       measurementHistory: []
     };
     botContexts.push(botObj);
 
-    // Navigate async
     botObj.joinPromise = page.goto(targetUrl, { timeout: 120000 })
       .then(() => page.waitForSelector("#room-screen.active", { timeout: 120000 }))
       .then(() => {
         if (!shuttingDown) {
           botObj.uiJoined = true;
           botObj.firstJoinElapsed = (Date.now() - startedAt) / 1000;
-          console.log(`[+] ${botName} UI joined`);
+          console.log(`[+] ${botName} UI joined room: ${botObj.roomName}`);
         }
       })
       .catch(e => {
-        if (!shuttingDown) console.log(`[!] ${botName} failed to join: ${e.message}`);
+        if (!shuttingDown) console.log(`[!] ${botName} failed to join room ${botObj.roomName}: ${e.message}`);
       });
 
-    if (i < CLIENT_COUNT - 1) await delay(RAMP_DELAY_MS);
+    if (i < TOTAL_CLIENTS - 1) await delay(RAMP_DELAY_MS);
   }
 
   // Wait for RAMP_UP to settle
   console.log(`\nWaiting for all bots to finish UI join...`);
   await Promise.all(botContexts.map(b => b.joinPromise));
   const uiJoinedTotal = botContexts.filter(b => b.uiJoined).length;
-  console.log(`UI join phase completed: ${uiJoinedTotal}/${CLIENT_COUNT} joined`);
+  console.log(`UI join phase completed: ${uiJoinedTotal}/${TOTAL_CLIENTS} joined`);
 
   // WARMUP
   currentPhase = "warmup";
@@ -371,7 +387,7 @@ async function runBenchmark() {
       // Aggregate
       let aggRow = [
         sampleTimestampIso, nextSampleEpoch, collectedTimestampIso, collectedEpoch, collectionDriftSec,
-        RUN_ID, LOAD_GENERATOR_ID, elapsedS, currentPhase, CLIENT_COUNT,
+        RUN_ID, LOAD_GENERATOR_ID, elapsedS, currentPhase, TOTAL_CLIENTS,
         agg.ui_joined, agg.ice_connected, agg.audio_active, agg.video_active,
         agg.tot_audio_pkts_delta, agg.tot_audio_bytes_delta, agg.tot_video_pkts_delta,
         agg.tot_video_bytes_delta, agg.tot_frames_delta, agg.with_stats, agg.missing_stats,
@@ -469,8 +485,10 @@ async function runBenchmark() {
       started_at: new Date(startedAt).toISOString(),
       ended_at: new Date().toISOString(),
       duration_s: (Date.now() - startedAt) / 1000,
+      instance_type: INSTANCE_TYPE,
+      aws_az: AWS_AZ,
       interrupted: shuttingDown,
-      configured_bot_count: CLIENT_COUNT,
+      configured_bot_count: TOTAL_CLIENTS,
       ui_join_success_count: uiJoinSuccessCount,
       ice_connected_count_max: uiJoinSuccessCount, // approx
       stable_audio_publishers: stableAudioCount,
