@@ -1,0 +1,4 @@
+/root/.jitsi-meet-cfg/web/config.js
+
+config.startVideoMuted = 10;
+config.startAudioMuted = 10;    

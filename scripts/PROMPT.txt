@@ -1,0 +1,204 @@
+You are a rigorous data visualization and performance analysis assistant.
+
+I will upload two CSV files from a Jitsi Meet benchmark experiment:
+
+1. os_metrics_room1_20260503_121155.csv
+2. jvb_colibri_room1_20260503_121155.csv
+
+These two files must be analyzed together. Do not proceed with the visualization unless both CSV files are available.
+
+Context:
+The experiment measures a Jitsi Meet / Jitsi Videobridge system during a benchmark run. The OS metrics file contains host-level measurements such as CPU, memory, load average, and network throughput. The JVB Colibri file contains Jitsi Videobridge runtime metrics such as participants, conferences, endpoints, bitrate, packet rate, loss, RTT, stress level, and threads.
+
+Important timestamp rule:
+Both CSV files contain aligned sampling timestamps. Use `sample_epoch` as the primary join key. Use `sample_timestamp_iso` only for human-readable x-axis labels. Do not use `collected_epoch` or `jvb_current_timestamp` as the main join key. `jvb_current_timestamp` may be in a different timezone and should only be used for debugging, not for merging.
+
+Main task:
+Create a clear visual benchmark dashboard using the two CSV files. The dashboard should help me understand the relationship between system resource usage and Jitsi Videobridge behavior.
+
+Please perform the following steps:
+
+1. Load both CSV files.
+2. Inspect their columns and data types.
+3. Merge the two datasets using `sample_epoch`.
+4. Convert `sample_timestamp_iso` into a readable datetime field for plotting.
+5. Sort all rows by `sample_epoch`.
+6. Check whether the sampling interval is consistently 5 seconds.
+7. Check whether there is any timestamp mismatch, missing sample, duplicate sample, or collection drift.
+8. Produce visual diagrams suitable for interpreting a benchmark experiment.
+9. Provide concise interpretation below each chart.
+10. If some JVB metrics are all zero or constant, still explain what that means rather than silently ignoring them.
+
+Please create the following diagrams:
+
+Diagram 1 — Benchmark timeline overview
+Create a multi-line time-series chart showing:
+- participants
+- conferences
+- endpoints
+- largest_conference
+
+Purpose:
+This chart should show when the benchmark workload was active and whether the JVB observed active users/conferences during the run.
+
+Diagram 2 — CPU and memory utilization over time
+Create a time-series chart showing:
+- cpu_user_pct
+- cpu_system_pct
+- mem_used_pct
+
+Purpose:
+This chart should show host resource usage during the benchmark. It should help identify whether CPU or memory became a bottleneck.
+
+Diagram 3 — Network throughput over time
+Create a time-series chart showing:
+- net_rx_bytes_per_sec
+- net_tx_bytes_per_sec
+
+Convert bytes/sec to Mbps before plotting using:
+Mbps = bytes_per_sec * 8 / 1,000,000
+
+Purpose:
+This chart should show inbound and outbound traffic intensity. Label the y-axis as Mbps.
+
+Diagram 4 — JVB bitrate vs OS network throughput
+Create a combined comparison chart showing:
+- JVB bit_rate_download
+- JVB bit_rate_upload
+- OS net_rx_mbps
+- OS net_tx_mbps
+
+If JVB bitrate units appear to be kbps or another unit, infer cautiously and state the assumption. Do not overclaim.
+
+Purpose:
+This chart should compare JVB-reported media bitrate with OS-level network throughput.
+
+Diagram 5 — Packet rate and CPU relationship
+Create a dual-axis or aligned multi-panel chart showing:
+- packet_rate_download
+- packet_rate_upload
+- cpu_user_pct
+- cpu_system_pct
+
+Purpose:
+This chart should help determine whether packet-processing activity corresponds to CPU usage.
+
+Diagram 6 — JVB stress and participant load
+Create a time-series chart showing:
+- stress_level
+- average_participant_stress
+- participants
+- endpoints
+
+Purpose:
+This chart should show whether JVB stress increases with participant or endpoint count.
+
+Diagram 7 — Quality indicators over time
+Create a time-series chart showing:
+- incoming_loss
+- outgoing_loss
+- overall_loss
+- rtt_aggregate
+
+If loss values are zero throughout the experiment, explicitly state that no packet loss was observed in the collected JVB metrics during this run.
+
+Purpose:
+This chart should summarize media quality indicators.
+
+Diagram 8 — Threads and system load
+Create a chart showing:
+- threads
+- load_1m
+- load_5m
+- load_15m
+
+Purpose:
+This chart should show whether JVM/JVB thread activity and OS load average changed during the run.
+
+Diagram 9 — Correlation heatmap
+Create a correlation heatmap using the following numeric variables if available:
+- participants
+- endpoints
+- largest_conference
+- bit_rate_download
+- bit_rate_upload
+- packet_rate_download
+- packet_rate_upload
+- stress_level
+- average_participant_stress
+- rtt_aggregate
+- incoming_loss
+- outgoing_loss
+- overall_loss
+- cpu_user_pct
+- cpu_system_pct
+- mem_used_pct
+- net_rx_mbps
+- net_tx_mbps
+- load_1m
+- threads
+
+Before creating the heatmap, exclude columns that are constant or entirely missing. Explain which columns were excluded and why.
+
+Purpose:
+This chart should show possible associations between workload intensity, JVB internal behavior, network traffic, and host resource usage.
+
+Diagram 10 — Benchmark summary cards
+Create a compact summary section showing:
+- total duration of the run
+- number of samples
+- sampling interval
+- maximum participants
+- maximum endpoints
+- maximum largest_conference
+- average CPU user %
+- maximum CPU user %
+- average memory used %
+- maximum memory used %
+- maximum network receive Mbps
+- maximum network transmit Mbps
+- maximum JVB stress_level
+- maximum RTT aggregate
+- maximum overall loss
+- number of samples with curl_success = false
+- maximum collection_drift_sec
+
+Purpose:
+This should give a quick numerical summary of the benchmark run.
+
+Important visualization requirements:
+- Use `sample_timestamp_iso` or converted datetime on the x-axis.
+- Use clear titles and axis labels.
+- Use readable legends.
+- Keep OS metrics and JVB metrics visually distinguishable.
+- Avoid overcrowded charts. Use separate charts or panels when necessary.
+- Do not hide zero-valued metrics without explanation.
+- Treat this as benchmark evidence, not as proof of scalability.
+- Mention limitations such as single run, short duration, lack of repeated trials, and possible idle phases if participants are zero.
+
+Analytical interpretation requirements:
+After the charts, provide a concise benchmark interpretation with the following sections:
+
+A. Workload validity
+State whether the JVB metrics suggest that the benchmark actually had active participants/conferences during the sampled period. Use participants, endpoints, conferences, and largest_conference to support the interpretation.
+
+B. Resource utilization
+Summarize CPU, memory, load average, and network behavior.
+
+C. JVB behavior
+Summarize bitrate, packet rate, stress_level, RTT, loss, and threads.
+
+D. OS–JVB relationship
+Discuss whether changes in JVB metrics appear to correspond with changes in OS metrics.
+
+E. Data quality
+Comment on timestamp alignment, missing samples, duplicate samples, collection drift, and curl_success.
+
+F. Limitations
+Clearly state that this is only one benchmark run and should not be generalized without repeated trials, controlled workloads, and comparison across architecture variants.
+
+G. Recommended next visualizations
+Suggest what additional diagrams would be useful when more experiment runs are available, such as comparisons across monolithic vs split-JVB architectures, different participant counts, and cost-performance plots.
+
+Output:
+Please generate the dashboard/diagrams directly in the Canvas and include concise explanations. If possible, also provide reusable Python or JavaScript code used to generate the visualizations so I can reproduce them later.

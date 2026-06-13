@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- jQuery (Thường lib-jitsi-meet hoặc strophe bên dưới cần để xử lý XML) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Script Jitsi sẽ được app.js tải động dựa vào domain -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="join-screen" class="screen glass-panel active">
+        <h1>Headless Load Test Bot</h1>
+        <p class="subtitle">Chỉ gửi Camera/Mic - Nhẹ nhất có thể</p>
+        
+        <div class="input-group">
+            <label for="domain-name">Jitsi Domain / IP</label>
+            <input type="text" id="domain-name" placeholder="VD: 172.31.81.22 hoặc jitsi.domain.com">
+        </div>
+        
+        <div class="input-group">
+            <label for="room-name">Tên Phòng</label>
+            <input type="text" id="room-name" value="mvm" placeholder="Nhập tên phòng...">
+        </div>
+        
+        <div class="input-group">
+            <label for="display-name">Tên hiển thị (Bot)</label>
+            <input type="text" id="display-name" value="LoadTest-Bot" placeholder="Nhập tên hiển thị...">
+        </div>
+        
+        <div class="input-group">
+            <label for="role-select">Vai trò (Mode)</label>
+            <select id="role-select">
+                <option value="sender">Chỉ gửi (Bot Load Test)</option>
+                <option value="receiver">Chỉ nhận (Chế độ xem Grid)</option>
+                <option value="both">Gửi và Nhận (Tiêu chuẩn)</option>
+            </select>
+        </div>
+
+        <button id="join-btn" class="primary-btn">Vào phòng ngay</button>
+        <div id="status-msg" class="status-msg"></div>
+    </div>
+
+    <div id="room-screen" class="screen">
+        <header class="glass-header">
+            <div class="header-left">
+                <h2>Phòng: <span id="current-room"></span></h2>
+                <div id="role-badge" class="badge green">Đang gửi Camera/Audio</div>
+            </div>
+            <div class="header-right">
+                <span class="users-count">👤 <span id="user-count-val">1</span> người tham gia</span>
+                <button id="leave-btn" class="danger-btn">Rời phòng & Đóng Tab</button>
+            </div>
+        </header>
+
+        <main class="room-layout">
+            <div class="main-content">
+                <div id="video-grid" class="video-grid" style="display: none;">
+                    <!-- Video streams sẽ được add vào đây -->
+                </div>
+            </div>
+            <div class="participants-sidebar glass-panel">
+                <h3>Người tham gia</h3>
+                <ul id="participants-list" class="participants-list">
+                    <!-- Sẽ được thêm bằng JS -->
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <!-- WebRTC Debug Box -->
+    <div id="debug-box" style="display: none; position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 5px; z-index: 9999; max-width: 300px; line-height: 1.4;">
+        <strong>WebRTC Stats</strong>
+        <div id="debug-content">Collecting stats...</div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
